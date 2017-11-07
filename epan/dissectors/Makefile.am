@@ -986,6 +986,7 @@ DISSECTOR_SRC = \
 	packet-ncp.c		\
 	packet-ncp2222.c	\
 	packet-ncs.c		\
+	packet-ncsi.c		\
 	packet-ndmp.c		\
 	packet-ndp.c		\
 	packet-ndps.c		\
