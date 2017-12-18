@@ -50,6 +50,28 @@ static int hf_ncsi_plen = -1;
 static int hf_ncsi_resp = -1;
 static int hf_ncsi_reason = -1;
 
+/* Select package */
+static int hf_ncsi_sp_hwarb = -1;
+
+/* Disable channel */
+static int hf_ncsi_dc_ald = -1;
+
+/* AEN enable */
+static int hf_ncsi_aene_mc = -1;
+
+/* Set MAC Address */
+static int hf_ncsi_sm_mac = -1;
+static int hf_ncsi_sm_macno = -1;
+static int hf_ncsi_sm_at = -1;
+static int hf_ncsi_sm_e = -1;
+
+/* Broadcast filter */
+static int hf_ncsi_bf = -1;
+static int hf_ncsi_bf_arp = -1;
+static int hf_ncsi_bf_dhcpc = -1;
+static int hf_ncsi_bf_dhcps = -1;
+static int hf_ncsi_bf_netbios = -1;
+
 /* AEN payload fields */
 static int hf_ncsi_aen_type = -1;
 static int hf_ncsi_aen_lsc_stat = -1;
@@ -90,6 +112,18 @@ enum ncsi_type {
 
 static const value_string ncsi_type_vals[] = {
 	{ 0x00,			"Clear initial state" },
+	{ 0x01,			"Select package" },
+	{ 0x02,			"Deselect package" },
+	{ 0x03,			"Enable channel" },
+	{ 0x04,			"Disable channel" },
+	{ 0x05,			"Reset channel" },
+	{ 0x06,			"Enable channel TX" },
+	{ 0x07,			"Disable channel TX" },
+	{ 0x08,			"AEN enable" },
+	{ 0x0d,			"Disable VLAN" },
+	{ 0x0e,			"Set MAC address" },
+	{ 0x10,			"Enable broadcast filter" },
+	{ 0x11,			"Disable broadcast filter" },
 	{ NCSI_TYPE_GLS,	"Get link status" },
 	{ NCSI_TYPE_AEN,	"Async Event Notification" },
 };
@@ -158,6 +192,17 @@ static const value_string ncsi_aen_hcstat_vals[] = {
         { 0x00, "not running" },
         { 0x01, "running" },
 };
+
+static const value_string ncsi_sm_at_vals[] = {
+        { 0x00, "unicast" },
+        { 0x01, "multicast" },
+};
+
+static const value_string ncsi_bf_filter_vals[] = {
+        { 0x00, "drop" },
+        { 0x01, "forward" },
+};
+
 
 static void
 ncsi_proto_tree_add_lstat(tvbuff_t *tvb, proto_tree *tree, int offset)
@@ -261,7 +306,7 @@ dissect_ncsi(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 	    return 16;
 
     /* Payload tree */
-    ncsi_payload_tree = proto_tree_add_subtree(ncsi_tree, tvb, 8,
+    ncsi_payload_tree = proto_tree_add_subtree(ncsi_tree, tvb, 16,
 		    plen, ett_ncsi_payload, &pti, "Payload");
 
     /* All responses start with response code & reason data */
@@ -273,6 +318,45 @@ dissect_ncsi(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     }
 
     switch (type) {
+    case 0x01:
+	    proto_item_set_text(pti, "Select package request");
+	    proto_tree_add_item(ncsi_payload_tree, hf_ncsi_sp_hwarb, tvb,
+			    19, 1, ENC_NA);
+	    break;
+    case 0x04:
+	    proto_item_set_text(pti, "Disable channel request");
+	    proto_tree_add_item(ncsi_payload_tree, hf_ncsi_dc_ald, tvb,
+			    19, 1, ENC_NA);
+	    break;
+    case 0x08:
+	    proto_item_set_text(pti, "AEN enable request");
+	    proto_tree_add_item(ncsi_payload_tree, hf_ncsi_aene_mc, tvb,
+			    19, 1, ENC_NA);
+	    break;
+    case 0x0e:
+	    proto_item_set_text(pti, "Set MAC address request");
+	    proto_tree_add_item(ncsi_payload_tree, hf_ncsi_sm_mac, tvb,
+			    16, 6, ENC_NA);
+	    proto_tree_add_item(ncsi_payload_tree, hf_ncsi_sm_macno, tvb,
+			    22, 1, ENC_NA);
+	    proto_tree_add_item(ncsi_payload_tree, hf_ncsi_sm_at, tvb,
+			    23, 1, ENC_NA);
+	    proto_tree_add_item(ncsi_payload_tree, hf_ncsi_sm_e, tvb,
+			    23, 1, ENC_NA);
+	    break;
+    case 0x10:
+	    proto_item_set_text(pti, "Enable broadcast filter request");
+	    proto_tree_add_item(ncsi_payload_tree, hf_ncsi_bf, tvb,
+			    16, 4, ENC_NA);
+	    proto_tree_add_item(ncsi_payload_tree, hf_ncsi_bf_arp, tvb,
+			    16, 4, ENC_NA);
+	    proto_tree_add_item(ncsi_payload_tree, hf_ncsi_bf_dhcpc, tvb,
+			    16, 4, ENC_NA);
+	    proto_tree_add_item(ncsi_payload_tree, hf_ncsi_bf_dhcps, tvb,
+			    16, 4, ENC_NA);
+	    proto_tree_add_item(ncsi_payload_tree, hf_ncsi_bf_netbios, tvb,
+			    16, 4, ENC_NA);
+	    break;
     case NCSI_TYPE_GLS | 0x80:
 	    proto_item_set_text(pti, "Get Link Status response");
             ncsi_proto_tree_add_lstat(tvb, ncsi_payload_tree, 20);
@@ -341,6 +425,42 @@ proto_register_ncsi(void)
             FT_UINT8, BASE_HEX, NULL, 0x0,
             "Reason code", HFILL },
         },
+        { &hf_ncsi_sp_hwarb,
+          { "Hardware arbitration disable", "ncsi.sp.hwarb",
+            FT_UINT8, BASE_HEX, NULL, 0x0,
+            "Hardware arbitration disable", HFILL },
+        },
+        { &hf_ncsi_dc_ald,
+          { "Allow link down", "ncsi.dc.ald",
+            FT_UINT8, BASE_HEX, NULL, 0x1,
+            "Allow link down", HFILL },
+        },
+        { &hf_ncsi_aene_mc,
+          { "Management controller ID", "ncsi.aene.mc",
+            FT_UINT8, BASE_HEX, NULL, 0x1,
+            "Management controller ID", HFILL },
+        },
+        { &hf_ncsi_sm_mac,
+          { "MAC address", "ncsi.sm.mac",
+            FT_ETHER, BASE_NONE, NULL, 0,
+            "MAC address", HFILL },
+        },
+        { &hf_ncsi_sm_macno,
+          { "MAC address number", "ncsi.sm.macno",
+            FT_UINT8, BASE_HEX, NULL, 0,
+            "MAC address number", HFILL },
+        },
+        { &hf_ncsi_sm_at,
+          { "Address type", "ncsi.sm.at",
+            FT_UINT8, BASE_HEX, ncsi_sm_at_vals, 0xe0,
+            "Address type", HFILL },
+        },
+        { &hf_ncsi_sm_e,
+          { "Enabled", "ncsi.sm.e",
+            FT_UINT8, BASE_HEX, ncsi_enable_vals, 0x1,
+            "Enabled", HFILL },
+        },
+
         { &hf_ncsi_aen_type,
           { "AEN type", "ncsi.aen_type",
             FT_UINT8, BASE_HEX, ncsi_aen_type_vals, 0xff,
@@ -360,6 +480,32 @@ proto_register_ncsi(void)
           { "AEN link host controller status", "ncsi.aen_lsc_hcstat",
             FT_UINT8, BASE_HEX, VALS(ncsi_aen_hcstat_vals), 0x0,
             "AEN link host controller status", HFILL },
+        },
+	/* Broadcast filter */
+        { &hf_ncsi_bf,
+          { "Broadcast filter settings", "ncsi.bf.settings",
+            FT_UINT32, BASE_HEX, NULL, 0x0,
+            "Broadcast filter settings", HFILL },
+        },
+        { &hf_ncsi_bf_arp,
+          { "ARP", "ncsi.bf.settings.arp",
+            FT_UINT32, BASE_HEX, VALS(ncsi_bf_filter_vals), 1 << 0,
+            "ARP", HFILL },
+        },
+        { &hf_ncsi_bf_dhcpc,
+          { "DHCP Client", "ncsi.bf.settings.dhcpc",
+            FT_UINT32, BASE_HEX, VALS(ncsi_bf_filter_vals), 1 << 1,
+            "DHCP Client", HFILL },
+        },
+        { &hf_ncsi_bf_dhcps,
+          { "DHCP Server", "ncsi.bf.settings.dhcps",
+            FT_UINT32, BASE_HEX, VALS(ncsi_bf_filter_vals), 1 << 2,
+            "DHCP Server", HFILL },
+        },
+        { &hf_ncsi_bf_netbios,
+          { "NetBIOS", "ncsi.bf.settings.netbios",
+            FT_UINT32, BASE_HEX, VALS(ncsi_bf_filter_vals), 1 << 3,
+            "NetBIOS", HFILL },
         },
 
         /* generic link status */
